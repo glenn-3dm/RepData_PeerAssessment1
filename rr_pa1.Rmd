@@ -1,0 +1,111 @@
+---
+title: 'Reproducible Research: Peer Assessment 1'
+author: "GI"
+date: "6/1/2020"
+output: html_document
+---
+
+## Loading and preprocessing data
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+
+# Read in data file
+raw.data <- read.csv('activity.csv')
+raw.data$date <- as.POSIXct(raw.data$date)
+
+# Create data set that excludes NA values
+rm.na.data <- na.omit(raw.data)
+```
+
+
+
+
+## What is the mean total number of steps taken per day?
+
+```{r}
+# Calculate the total steps taken per day
+daily.steps <- aggregate(rm.na.data$steps,by = list(date = rm.na.data$date),FUN = sum)
+names(daily.steps)[names(daily.steps) == 'x'] <- 'steps'
+
+# Make histogram of total steps taken each day
+ggplot(daily.steps,aes(x = date,y = steps)) + geom_histogram(stat = 'identity',color = 'white')
+
+# Calculate and report the mean and median total steps per day
+avg.spd <- mean(daily.steps$steps)
+med.spd <- median(daily.steps$steps)
+```
+
+The average number of steps taken per day is `r avg.spd`.
+The median number of steps taken per day is `r med.spd`.
+
+
+## What is the average daily activity pattern?
+
+```{r}
+# Create subset of 5-min intervals and average number of steps taken
+daily.pattern <- aggregate(rm.na.data$steps,by = list(interval = rm.na.data$interval),FUN = mean)
+names(daily.pattern)[names(daily.pattern) == 'x'] <- 'avg.steps'
+
+# Make a time series line plot of interval vs avg steps
+plot(x = daily.pattern$interval,y = daily.pattern$avg.steps,type = 'l')
+
+# Determine which 5-min interval contains the maximum number of steps
+peak.int <- daily.pattern[which.max(daily.pattern$avg.steps),]
+peak.int <- peak.int[,1]
+```
+
+The `r peak.int` interval contains the maximum number of average steps per day with `r max(daily.pattern$avg.steps)`.
+
+
+## Imputing missing values
+
+This will be performed by replace all NA values with the average number of steps taken during that 5-minute interval.
+
+```{r}
+# Calculate total number of NAs in original dataset
+num.na <- sum(is.na(raw.data))
+
+# Replace missing data with average steps for that interval
+na.rep.data <- raw.data
+na.rep.data$avg.steps <- daily.pattern$avg.steps
+na.rep.data$steps[is.na(na.rep.data$steps)] <- na.rep.data$avg.steps
+
+# Calculate total steps taken per day using replaced data set
+na.rep.total <- aggregate(na.rep.data$steps,by = list(date = na.rep.data$date),FUN = sum)
+names(na.rep.total)[names(na.rep.total) == 'x'] <- 'steps'
+
+# Make histogram of total steps taken each day using replaced data
+ggplot(na.rep.total,aes(x = date,y = steps)) + geom_histogram(stat = 'identity',color = 'white')
+
+# Calculate and report the updated mean and median total steps per day
+na.rep.avg.spd <- mean(na.rep.total$steps)
+na.rep.med.spd <- median(na.rep.total$steps)
+```
+
+The average number of steps taken per day using the updated dataset is `r na.rep.avg.spd`.
+The median number of steps taken per day using the updated dataset is `r na.rep.med.spd`.
+
+When compared to the original average and median values of `r avg.spd` and `r med.spd`, respectively, we can see that the replacement of NA values had minimal impact on this calculations.
+
+
+## Are there differences in activity patterns between weekdays and weekends?
+
+```{r}
+# Create a new factor in updated data set for Weekday and Weekend
+na.rep.data$weekday <- ifelse(weekdays(na.rep.data$date) %in% c("Saturday","Sunday"),'Weekend','Weekday')
+
+# Calculate average steps in 5 minute intervals between Weekday and Weekend
+weekday.avg <- aggregate(na.rep.data[na.rep.data$weekday == "Weekday",]$steps,by = list(interval = na.rep.data[na.rep.data$weekday == "Weekday",]$interval),FUN = mean)
+weekend.avg <- aggregate(na.rep.data[na.rep.data$weekday == "Weekend",]$steps,by = list(interval = na.rep.data[na.rep.data$weekday == "Weekend",]$interval),FUN = mean)
+
+# Make a panel plot showing the intervals and average steps between Weekday and Weekend
+par(mfcol = c(2,1))
+plot(weekday.avg$interval,weekday.avg$x,type = 'l',main = 'Weekday Averages',xlab = 'Interval',ylab = 'Avg. Steps')
+plot(weekend.avg$interval,weekend.avg$x,type = 'l',main = 'Weekend Averages',xlab = 'Interval',ylab = 'Avg. Steps')
+```
+
+
+
